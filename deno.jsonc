@@ -1,0 +1,10 @@
+{
+	"tasks": {
+		"dev": "deno run -A --watch mod.ts",
+		"build": "deno run -A mod.ts build"
+	},
+	"compilerOptions": {
+		"lib": ["deno.ns", "deno.window", "dom"]
+	},
+	"lock": false
+}
