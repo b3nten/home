@@ -9,10 +9,24 @@ type IntrinsicElementCreator = {
     attrs: ElementProps<K> | string | number | boolean | undefined | JSX.Element | null,
     ...children: any[]
   ) => any;
-};
+} & typeof _h;
 
-
-export function createBetterH(h: any) {
+/**
+ * Creates a better h function that allows you to use JSX-like syntax
+ * with any element, not just HTML elements.
+ * @param h The h function to wrap
+ * @returns A better h function
+ * @example
+ * // Usage
+ * const h = createBetterH(_h)
+ * const MyComponent = () => {
+ *  return (
+ *   h.div({ className: "text-lg" }, 
+ *    h(MyComponent, { someProp: true }, h.span("Hello"), h.span("World")))
+ *  ))
+ * }
+ */
+export function createBetterH(h: any): IntrinsicElementCreator {
   return new Proxy(h, {
     get: function (_, prop: string) {
       return function (attrs: any, ...children: any[]) {
@@ -22,20 +36,38 @@ export function createBetterH(h: any) {
           attrs.children = attrs.children || []
           attrs.children = [...attrs.children, ...children]
         }
-        return h(prop, attrs)
+        return _h(prop, attrs)
       }
+    },
+    apply: function (_, __, args) {
+      return h(...args)
     }
   }) as IntrinsicElementCreator
 }
 
-export function Property(target: any, key: any) {
+/**
+ * Decorator for properties that should be observed for changes.
+ * This decorator is required for properties to be observed.
+ * Shortcut for declaring Component.observedProperties.
+ */
+export function Property(target: any, key: any): void {
   target.constructor.observedProperties.push(key)
 }
 
-export function Attribute(target: any, key: any) {
+/**
+ * Decorator for attributes that should be observed for changes.
+ * This decorator is required for attributes to be observed.
+ * Shortcut for declaring Component.observedAttributes.
+ * This will always reflect attributes back to the tag and read from it as well.
+ */
+export function Attribute(target: any, key: any): void {
   target.constructor.observedAttributes.push(key)
 }
 
+/**
+ * Decorator for methods that should be bound to the component.
+ * Shortcut for this.method = this.method.bind(this)
+ */
 export function Bind(_: any, key: any, { value: fn }: any) {
   // In IE11 calling Object.defineProperty has a side-effect of evaluating the
   // getter for the property which is being replaced. This causes infinite
@@ -60,7 +92,24 @@ export function Bind(_: any, key: any, { value: fn }: any) {
   };
 }
 
-// define a web component (and set property types)
+/**
+ * Utility function to create a component from a web component.
+ * Usually nicer than trying to use a web component directly in an h function.
+ * @param tag The tag of the web component
+ * @returns A hyperscript component that renders the web component
+ */ 
+export function wrapComponent<T>(tag: string) {
+  return function Component(props: T) {
+    // @ts-ignore tag can be any string!
+    return _h(tag, props)
+  }
+}
+
+/**
+ * Decorator for classes that should be defined as a web component.
+ * @param tagName The tag name of the web component
+ * Generic type is the interface for the component.
+ */
 type Constructor<T> = new (...args: any[]) => T;
 export function Define<T extends Record<any, any>>(tagName: string) {
   return function (constructor: Constructor<T>) {
@@ -69,7 +118,13 @@ export function Define<T extends Record<any, any>>(tagName: string) {
   };
 }
 
-
+/**
+ * Base class for components.
+ * Only properties and attributes are reactive by default.
+ * Call this.update() to update the component synchronously.
+ * Observe attributes by using the @Attribute decorator, or by adding them to the observedAttributes array.
+ * Observe properties by using the @Property decorator, or by adding them to the observedProperties array.
+ */
 abstract class Component extends HTMLElement {
   static observedAttributes: string[] = []
   static observedProperties: string[] = []
@@ -83,11 +138,11 @@ abstract class Component extends HTMLElement {
       const key = this.constructor.observedProperties[prop]
       this._props[key] = this[key]
       Object.defineProperty(this, key, {
-        set(value){
+        set(value) {
           this._props[key] = value;
           this.update();
         },
-        get(){
+        get() {
           return this._props[key]
         },
         configurable: true,
@@ -127,6 +182,7 @@ globalThis.Attribute = Attribute
 globalThis.Bind = Bind
 globalThis.Define = Define
 
+// evil typescript hack to avoid circular dependency
 const __h = h
 const __component = Component
 const __property = Property
