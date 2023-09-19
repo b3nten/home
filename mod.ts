@@ -16,7 +16,17 @@ async function build() {
   // create dist folder
   await Deno.mkdir("./dist", { recursive: true });
 
+  // generate css
   const css = await get_css();
+  
+  // get paths to all blog component files
+  const blogPaths = []
+  const blogComponents = walk.walk("./components/blog");
+  for await (const file of blogComponents) {
+    if (file.isFile) {
+      blogPaths.push(file.path)
+    }
+  }
 
   // build the bundle with esbuild
   const result = await esbuild.build({
@@ -33,7 +43,7 @@ async function build() {
       },
     },
     // inject the component globals
-    inject: ["./lib/Component.tsx"],
+    inject: ["./lib/Component.tsx", ...blogPaths],
   });
 
   // @ts-expect-error
