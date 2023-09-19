@@ -1,0 +1,1 @@
+export default (...args: any) => args.flat().filter(Boolean).join(" ");

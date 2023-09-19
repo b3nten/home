@@ -45,6 +45,7 @@ export function createBetterH(h: any): IntrinsicElementCreator {
   }) as IntrinsicElementCreator
 }
 
+export const h = createBetterH(_h)
 /**
  * Decorator for properties that should be observed for changes.
  * This decorator is required for properties to be observed.
@@ -125,7 +126,7 @@ export function Define<T extends Record<any, any>>(tagName: string) {
  * Observe attributes by using the @Attribute decorator, or by adding them to the observedAttributes array.
  * Observe properties by using the @Property decorator, or by adding them to the observedProperties array.
  */
-abstract class Component extends HTMLElement {
+export abstract class Component extends HTMLElement {
   static observedAttributes: string[] = []
   static observedProperties: string[] = []
   private _props: any = {}
@@ -213,29 +214,16 @@ abstract class Component extends HTMLElement {
   protected addLifecycleCallback(name: keyof typeof this.cbmap, cb: () => void): void {
     this.cbmap[name].push(cb)
   }
-}
 
-const h = createBetterH(_h)
-globalThis.h = h
-globalThis.Component = Component
-globalThis.Property = Property
-globalThis.Attribute = Attribute
-globalThis.Bind = Bind
-globalThis.Define = Define
+  /*
+    Effect hook. Basically like useEffect.
+    Create an effect in the constructor or anywhere. It will be called on mount, the return value will be called on destroy or next effect.
+    If you want to call the effect on update, pass an array of dependencies as the second argument.
+  */
 
-// evil typescript hack to avoid circular dependency
-const __h = h
-const __component = Component
-const __property = Property
-const __attribute = Attribute
-const __bind = Bind
-const __define = Define
+  /*
+    Memo hook. Basically like useMemo.
+    Create a memo in the constructor or anywhere. It will be called on mount, and synchronously before update if the dependencies change.
+  */
 
-declare global {
-  var h: typeof __h;
-  var Component: typeof __component;
-  var Property: typeof __property;
-  var Attribute: typeof __attribute;
-  var Bind: typeof __bind;
-  var Define: typeof __define;
 }

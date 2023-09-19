@@ -1,3 +1,5 @@
+import { Component, Define, Property, Bind, h } from "./internal/Component.tsx";
+
 interface IAppRoot {
   count: number;
   increment(): void;

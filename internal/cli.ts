@@ -50,7 +50,7 @@ async function build() {
       },
     },
     // inject the component globals
-    inject: ["./internal/Component.tsx", ...blogPaths],
+    inject: [ ...blogPaths],
   });
 
   // @ts-expect-error
@@ -125,6 +125,10 @@ function createShell({
   <body>
     <script type="module">${bundle}</script>
     <app-root></app-root>
+    <blog-cache>${JSON.stringify({
+      "post1": "Hello from post 1",
+      "post2": "Hello from post 2",
+    })}</blog-cache>
   </body>
 </html>`;
 }
