@@ -5,10 +5,8 @@ interface IAppRoot {
 @Define<IAppRoot>("app-root")
 export class AppRoot extends Component {
   @Property count = 0;
-  @Property someText = "lol"
   @Bind increment() {
     this.count++;
-    this.someText = "cool"
   }
   render() {
     return (
