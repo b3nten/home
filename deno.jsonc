@@ -4,10 +4,10 @@
 		"build": "deno run -A ./internal/cli.ts build"
 	},
 	"compilerOptions": {
-		"lib": ["deno.ns", "deno.window", "dom"]
-	},
-	"imports": {
-		"preact": "https://esm.sh/preact"
+		"lib": ["deno.ns", "deno.window", "dom"],
+		"jsxImportSource": "https://esm.sh/preact",
+		"jsxFactory": "h",
+		"jsx":"react-jsx"
 	},
 	"lock": false
 }

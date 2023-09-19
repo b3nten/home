@@ -10,10 +10,10 @@ export class AppRoot extends Component {
   }
   render() {
     return (
-      h.div({ className: "flex flex-col items-center justify-center h-screen space-y-4" },
-        h.span({ className: "text-2xl" }, "The count is ", h.span({ className: "text-blue-400" }, this.count)),
-        h.button({ onClick: this.increment, className: "bg-blue-400 px-2 py-1 rounded-sm text-white" }, "Increment count"),
-      )
+      <div className="flex flex-col items-center justify-center h-screen space-y-4">
+        <span className="text-2xl">The count is <span className="text-blue-400">{this.count}</span></span>
+        <button onClick={this.increment} className="bg-blue-400 px-2 py-1 rounded-sm text-white">Increment count</button>
+      </div>
     )
   }
 }

@@ -37,9 +37,11 @@ async function build() {
   const result = await esbuild.build({
     entryPoints: ["./app.tsx"],
     bundle: true,
-    minify: false,
+    minify: Deno.args.includes("build"),
     write: false,
     format: "esm",
+    jsxFactory: "h",
+    jsxImportSource: "https://esm.sh/preact",
     // @ts-expect-error
     plugins: [...denoPlugins()],
     tsconfigRaw: {
