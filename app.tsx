@@ -8,6 +8,9 @@ export class AppRoot extends Component {
   @Bind increment() {
     this.count++;
   }
+  constructor(){
+    super()
+  }
   render() {
     return (
       <div className="flex flex-col items-center justify-center h-screen space-y-4">

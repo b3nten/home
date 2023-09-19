@@ -97,7 +97,7 @@ export function Bind(_: any, key: any, { value: fn }: any) {
  * Usually nicer than trying to use a web component directly in an h function.
  * @param tag The tag of the web component
  * @returns A hyperscript component that renders the web component
- */ 
+ */
 export function wrapComponent<T>(tag: string) {
   return function Component(props: T) {
     // @ts-ignore tag can be any string!
@@ -128,15 +128,17 @@ export function Define<T extends Record<any, any>>(tagName: string) {
 abstract class Component extends HTMLElement {
   static observedAttributes: string[] = []
   static observedProperties: string[] = []
+  private _props: any = {}
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     const styles = document.head.querySelector("#_global_styles")?.textContent || "";
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(styles);
-    if(this.shadowRoot) this.shadowRoot.adoptedStyleSheets = [sheet];
+    if (this.shadowRoot) this.shadowRoot.adoptedStyleSheets = [sheet];
   }
-  private _props: any = {}
+
   private handleObservables() {
     for (const prop in this.constructor.observedProperties) {
       const key = this.constructor.observedProperties[prop]
@@ -144,7 +146,7 @@ abstract class Component extends HTMLElement {
       Object.defineProperty(this, key, {
         set(value) {
           this._props[key] = value;
-          this.update();
+          this.requestUpdate();
         },
         get() {
           return this._props[key]
@@ -157,7 +159,7 @@ abstract class Component extends HTMLElement {
       Object.defineProperty(this, attr, {
         set: value => {
           this.setAttribute(attr, value);
-          this.update();
+          this.requestUpdate();
         },
         get: () => {
           return this.getAttribute(attr);
@@ -165,16 +167,51 @@ abstract class Component extends HTMLElement {
       })
     }
   }
+
   abstract render(): any;
+
+  requestUpdate() {
+    if (!this.shadowRoot) throw new Error("Shadow root not found")
+    render(this.render(), this.shadowRoot);
+    this.update?.();
+    this.cbmap.update.forEach(cb => cb())
+  }
+
   connectedCallback() {
     if (!this.shadowRoot) throw new Error("Shadow root not found")
     this.handleObservables()
+    this.create?.();
+    this.cbmap.create.forEach(cb => cb())
     this.render();
     render(this.render(), this.shadowRoot);
+    this.mount?.();
+    this.cbmap.mount.forEach(cb => cb())
   }
-  update() {
-    if (!this.shadowRoot) throw new Error("Shadow root not found")
-    render(this.render(), this.shadowRoot);
+
+  disconnectedCallback() {
+    this.destroy?.();
+    this.cbmap.destroy.forEach(cb => cb())
+  }
+
+  create?(): void;
+  mount?(): void;
+  update?(): void;
+  destroy?(): void;
+
+  private cbmap: {
+    create: Array<() => void>,
+    mount: Array<() => void>,
+    update: Array<() => void>,
+    destroy: Array<() => void>
+  } = {
+    create: [],
+    mount: [],
+    update: [],
+    destroy: []
+  }
+
+  protected addLifecycleCallback(name: keyof typeof this.cbmap, cb: () => void): void {
+    this.cbmap[name].push(cb)
   }
 }
 
