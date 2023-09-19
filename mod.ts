@@ -3,11 +3,14 @@ import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.t
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import * as walk from "https://deno.land/std@0.198.0/fs/walk.ts";
+import { debounce } from "https://deno.land/std@0.194.0/async/debounce.ts";
 import { get_css } from "./lib/uno.ts";
-// import "./app.tsx"
 
 if (Deno.args.includes("build")) {
+  const t = performance.now();
+  console.log("building...")
   build();
+  console.log("built in", performance.now() - t, "ms");
 } else {
   dev();
 }
@@ -76,7 +79,11 @@ async function build() {
 async function dev() {
   // use deno watch to watch for file changes
   // run build and then serve the files
-  await build();
+  const t = performance.now();
+  console.log("building...");
+  build();
+  console.log("built in", performance.now() - t, "ms");
+  console.log("serving...");
   Deno.serve((req) => {
     const url = new URL(req.url).pathname;
     const pathname = url === "/" ? "index" : url;
@@ -116,4 +123,21 @@ function createShell({
     <app-root></app-root>
   </body>
 </html>`
+}
+
+
+// watcher
+const watcher = Deno.watchFs(".");
+const debouncedBuild = debounce(() => {
+  const t = performance.now();
+  console.log("building...");
+  build();
+  console.log("built in", performance.now() - t, "ms");
+}, 1000);
+for await (const event of watcher) {
+  if(event.kind === "create" || event.kind === "modify" || event.kind === "remove") {
+    if(event.paths.every((path) => !path.includes("dist"))) {
+      debouncedBuild();
+    }
+  }
 }

@@ -1,6 +1,6 @@
 {
 	"tasks": {
-		"dev": "deno run -A --watch='*' mod.ts",
+		"dev": "deno run -A mod.ts",
 		"build": "deno run -A mod.ts build"
 	},
 	"compilerOptions": {
