@@ -4,11 +4,13 @@ import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import * as walk from "https://deno.land/std@0.198.0/fs/walk.ts";
 import { debounce } from "https://deno.land/std@0.194.0/async/debounce.ts";
-import { get_css } from "./lib/uno.ts";
+import { get_css } from "./uno.ts";
+
+const BUILD_DIR = "./.dist";
 
 if (Deno.args.includes("build")) {
   const t = performance.now();
-  console.log("building...")
+  console.log("building...");
   build();
   console.log("built in", performance.now() - t, "ms");
 } else {
@@ -17,17 +19,17 @@ if (Deno.args.includes("build")) {
 
 async function build() {
   // create dist folder
-  await Deno.mkdir("./dist", { recursive: true });
+  await Deno.mkdir(BUILD_DIR, { recursive: true });
 
   // generate css
   const css = await get_css();
-  
+
   // get paths to all blog component files
-  const blogPaths = []
+  const blogPaths = [];
   const blogComponents = walk.walk("./components/blog");
   for await (const file of blogComponents) {
     if (file.isFile) {
-      blogPaths.push(file.path)
+      blogPaths.push(file.path);
     }
   }
 
@@ -46,7 +48,7 @@ async function build() {
       },
     },
     // inject the component globals
-    inject: ["./lib/Component.tsx", ...blogPaths],
+    inject: ["./internal/Component.tsx", ...blogPaths],
   });
 
   // @ts-expect-error
@@ -55,15 +57,15 @@ async function build() {
   // generate pages for each route
   const routes = [
     "index",
-  ]
+  ];
 
   for await (const route of routes) {
-   const html = createShell({
+    const html = createShell({
       title: "Deno App",
       bundle,
       styles: css,
     });
-    Deno.writeTextFile(`./dist/${route}.html`, html)
+    Deno.writeTextFile(`${BUILD_DIR}/${route}.html`, html);
   }
 
   // copy static files
@@ -71,7 +73,7 @@ async function build() {
   for await (const file of staticFiles) {
     if (file.isFile) {
       const content = await Deno.readFile(`./assets/${file.name}`);
-      Deno.writeFile(`./dist/${file.name}`, content);
+      Deno.writeFile(`${BUILD_DIR}/${file.name}`, content);
     }
   }
 }
@@ -89,14 +91,14 @@ async function dev() {
     const pathname = url === "/" ? "index" : url;
     let file;
     try {
-      file = Deno.readFileSync(`./dist/${pathname}.html`);
+      file = Deno.readFileSync(`${BUILD_DIR}/${pathname}.html`);
       return new Response(file, {
         headers: {
           "content-type": "text/html",
         },
       });
     } catch {
-      file = Deno.readFileSync(`./dist/${pathname}`);
+      file = Deno.readFileSync(`${BUILD_DIR}/${pathname}`);
       return new Response(file, {
         headers: {
           "content-type": mime.getType(path.extname(pathname)) || "text/plain",
@@ -110,7 +112,7 @@ function createShell({
   title = "Deno App",
   bundle = "",
   styles = "",
-}){
+}) {
   return `<!DOCTYPE html>
 <html lang="en">
     <head>
@@ -122,9 +124,8 @@ function createShell({
     <script type="module">${bundle}</script>
     <app-root></app-root>
   </body>
-</html>`
+</html>`;
 }
-
 
 // watcher
 const watcher = Deno.watchFs(".");
@@ -135,8 +136,11 @@ const debouncedBuild = debounce(() => {
   console.log("built in", performance.now() - t, "ms");
 }, 1000);
 for await (const event of watcher) {
-  if(event.kind === "create" || event.kind === "modify" || event.kind === "remove") {
-    if(event.paths.every((path) => !path.includes("dist"))) {
+  if (
+    event.kind === "create" || event.kind === "modify" ||
+    event.kind === "remove"
+  ) {
+    if (event.paths.every((path) => !path.includes("dist"))) {
       debouncedBuild();
     }
   }

@@ -1,7 +1,7 @@
 {
 	"tasks": {
-		"dev": "deno run -A mod.ts",
-		"build": "deno run -A mod.ts build"
+		"dev": "deno run -A ./internal/cli.ts",
+		"build": "deno run -A ./internal/cli.ts build"
 	},
 	"compilerOptions": {
 		"lib": ["deno.ns", "deno.window", "dom"]
