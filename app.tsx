@@ -11,7 +11,7 @@ export class AppRoot extends Component {
   render() {
     return (
       h.div(
-        h.span("The count is ", this.count),
+        h.span({ className: "text-2xl"}, "The count is ", this.count),
         h.button({ onClick: this.increment }, "Increment count"),
       )
     )

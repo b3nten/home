@@ -129,11 +129,15 @@ function createShell({
 
 // watcher
 const watcher = Deno.watchFs(".");
-const debouncedBuild = debounce(() => {
+const debouncedBuild = debounce(async () => {
   const t = performance.now();
   console.log("building...");
-  build();
-  console.log("built in", performance.now() - t, "ms");
+  try{
+    await build();
+    console.log("built in", performance.now() - t, "ms");
+  } catch (e) {
+    console.error(e);
+  } 
 }, 1000);
 for await (const event of watcher) {
   if (

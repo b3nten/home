@@ -131,6 +131,10 @@ abstract class Component extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    const styles = document.head.querySelector("#_global_styles")?.textContent || "";
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(styles);
+    if(this.shadowRoot) this.shadowRoot.adoptedStyleSheets = [sheet];
   }
   private _props: any = {}
   private handleObservables() {
