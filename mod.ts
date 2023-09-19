@@ -3,6 +3,8 @@ import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.t
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import * as walk from "https://deno.land/std@0.198.0/fs/walk.ts";
+import { get_css } from "./lib/uno.ts";
+// import "./app.tsx"
 
 if (Deno.args.includes("build")) {
   build();
@@ -14,11 +16,13 @@ async function build() {
   // create dist folder
   await Deno.mkdir("./dist", { recursive: true });
 
+  const css = await get_css();
+
   // build the bundle with esbuild
   const result = await esbuild.build({
-    entryPoints: ["./app.ts"],
+    entryPoints: ["./app.tsx"],
     bundle: true,
-    minify: true,
+    minify: false,
     write: false,
     format: "esm",
     // @ts-expect-error
@@ -28,6 +32,8 @@ async function build() {
         experimentalDecorators: true,
       },
     },
+    // inject the component globals
+    inject: ["./lib/Component.tsx"],
   });
 
   // @ts-expect-error
@@ -36,14 +42,13 @@ async function build() {
   // generate pages for each route
   const routes = [
     "index",
-    "about",
-    "blog",
-    "blog/first-post",
   ]
+
   for await (const route of routes) {
    const html = createShell({
       title: "Deno App",
       bundle,
+      styles: css,
     });
     Deno.writeTextFile(`./dist/${route}.html`, html)
   }
@@ -87,15 +92,17 @@ async function dev() {
 function createShell({
   title = "Deno App",
   bundle = "",
+  styles = "",
 }){
   return `<!DOCTYPE html>
 <html lang="en">
     <head>
     <meta charset="UTF-8" />
     <title>${title}</title>
+    <style id="_global_styles">${styles}</style>
   </head>
   <body>
-    ${bundle}
+    <script type="module">${bundle}</script>
     <app-root></app-root>
   </body>
 </html>`
