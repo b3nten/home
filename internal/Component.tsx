@@ -207,11 +207,11 @@ export abstract class Component extends HTMLElement {
     update: Array<() => void>,
     destroy: Array<() => void>
   } = {
-    create: [],
-    mount: [],
-    update: [],
-    destroy: []
-  }
+      create: [],
+      mount: [],
+      update: [],
+      destroy: []
+    }
 
   protected addLifecycleCallback(name: keyof typeof this.cbmap, cb: () => void): void {
     this.cbmap[name].push(cb)
@@ -219,6 +219,14 @@ export abstract class Component extends HTMLElement {
 
   protected addDisposable(disposable: (...args: any) => any): void {
     this._disposables.push(disposable)
+  }
+
+  addSubscribable<T extends { subscribe: (value: any) => () => void }>(subscribable: T, action?: (value: any) => void) {
+    this.addDisposable(subscribable.subscribe((value: any) => {
+      if (action) action(value)
+      this.requestUpdate()
+    }))
+    return subscribable
   }
 
   /*
@@ -233,3 +241,4 @@ export abstract class Component extends HTMLElement {
   */
 
 }
+
