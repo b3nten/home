@@ -126,14 +126,12 @@ function createShell({
     <script type="module">${bundle}</script>
     <app-root></app-root>
     <blog-cache>
-    <template slot="posts">
     ${
     JSON.stringify({
       "post1": "Hello from post 1",
       "post2": "Hello from post 2",
     })
   }
-    </template>
   </blog-cache>
   </body>
 </html>`;
