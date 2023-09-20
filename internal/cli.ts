@@ -1,9 +1,10 @@
 import esbuild from "npm:esbuild";
-import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
+import httpImports from "./esbuild_plugin_http.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import * as walk from "https://deno.land/std@0.198.0/fs/walk.ts";
 import { debounce } from "https://deno.land/std@0.194.0/async/debounce.ts";
+import slash from "https://deno.land/x/slash/mod.ts";
 import { get_css } from "./uno.ts";
 
 const BUILD_DIR = "./.dist";
@@ -25,35 +26,34 @@ async function build() {
   const css = await get_css();
 
   // get paths to all blog component files
-  const blogPaths = [];
-  const blogComponents = walk.walk("./components/blog");
-  for await (const file of blogComponents) {
+  const componentImports = ["import './app.tsx';"];
+  const componentWalker = walk.walk("./components/blog");
+  for await (const file of componentWalker) {
     if (file.isFile) {
-      blogPaths.push(file.path);
+      componentImports.push(`import './${slash(file.path)}';`);
     }
   }
-
   // build the bundle with esbuild
   const result = await esbuild.build({
-    entryPoints: ["./app.tsx"],
+    stdin: {
+      contents: componentImports.join(""),
+      resolveDir: "./",
+    },
     bundle: true,
     minify: Deno.args.includes("build"),
     write: false,
     format: "esm",
+    target: "esnext",
     jsxFactory: "h",
     jsxImportSource: "https://esm.sh/preact",
-    // @ts-expect-error
-    plugins: [...denoPlugins()],
+    plugins: [httpImports()],
     tsconfigRaw: {
       compilerOptions: {
         experimentalDecorators: true,
       },
     },
-    // inject the component globals
-    inject: [ ...blogPaths],
   });
 
-  // @ts-expect-error
   const bundle = result.outputFiles[0].text;
 
   // generate pages for each route
@@ -85,7 +85,7 @@ async function dev() {
   // run build and then serve the files
   const t = performance.now();
   console.log("building...");
-  build();
+  await build();
   console.log("built in", performance.now() - t, "ms");
   console.log("serving...");
   Deno.serve((req) => {
@@ -125,10 +125,16 @@ function createShell({
   <body>
     <script type="module">${bundle}</script>
     <app-root></app-root>
-    <blog-cache>${JSON.stringify({
+    <blog-cache>
+    <template slot="posts">
+    ${
+    JSON.stringify({
       "post1": "Hello from post 1",
       "post2": "Hello from post 2",
-    })}</blog-cache>
+    })
+  }
+    </template>
+  </blog-cache>
   </body>
 </html>`;
 }
@@ -138,12 +144,12 @@ const watcher = Deno.watchFs(".");
 const debouncedBuild = debounce(async () => {
   const t = performance.now();
   console.log("building...");
-  try{
+  try {
     await build();
     console.log("built in", performance.now() - t, "ms");
   } catch (e) {
     console.error(e);
-  } 
+  }
 }, 1000);
 for await (const event of watcher) {
   if (

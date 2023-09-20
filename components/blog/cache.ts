@@ -13,9 +13,9 @@ export class BlogCache extends Component {
   constructor() {
     super();
     globalThis.BlogCache = this;
-    const posts = JSON.parse(this.firstChild?.textContent ?? "{}");
-    for (const [key, value] of Object.entries(posts)) {
-      this.posts.set(String(key), String(value));
+    const posts = JSON.parse(this.textContent ?? "{}");
+    for (const key in posts) {
+      this.posts.set(key, posts[key]);
     }
   }
 

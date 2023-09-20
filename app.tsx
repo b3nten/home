@@ -1,4 +1,5 @@
-import { Component, Define, Property, Bind, h } from "./internal/Component.tsx";
+import { Component, Define, Property, Bind, h, Attribute } from "./internal/Component.tsx";
+
 
 interface IAppRoot {
   count: number;
@@ -20,5 +21,23 @@ export class AppRoot extends Component {
         <button onClick={this.increment} className="bg-blue-400 px-2 py-1 rounded-sm text-white">Increment count</button>
       </div>
     )
+  }
+}
+
+interface ITextComp {
+  foo: {
+    bar: number
+  }
+  someattr: string
+}
+
+@Define<ITextComp>("text-comp")
+export class TextComp extends Component {
+  @Property foo = {
+    bar: 0
+  }
+  @Attribute someattr = "someattr"
+  render() {
+    return <span className="text-2xl">{this.foo.bar} {this.someattr}</span>
   }
 }

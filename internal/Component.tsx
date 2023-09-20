@@ -130,6 +130,7 @@ export abstract class Component extends HTMLElement {
   static observedAttributes: string[] = []
   static observedProperties: string[] = []
   private _props: any = {}
+  private _disposables: Array<(...args: any) => any> = []
 
   constructor() {
     super();
@@ -192,6 +193,7 @@ export abstract class Component extends HTMLElement {
   disconnectedCallback() {
     this.destroy?.();
     this.cbmap.destroy.forEach(cb => cb())
+    this._disposables.forEach(disposable => disposable())
   }
 
   create?(): void;
@@ -213,6 +215,10 @@ export abstract class Component extends HTMLElement {
 
   protected addLifecycleCallback(name: keyof typeof this.cbmap, cb: () => void): void {
     this.cbmap[name].push(cb)
+  }
+
+  protected addDisposable(disposable: (...args: any) => any): void {
+    this._disposables.push(disposable)
   }
 
   /*
