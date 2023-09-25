@@ -1,4 +1,6 @@
 import { h as _h, render, JSX } from 'https://esm.sh/preact'
+import { signal, effect } from 'https://esm.sh/usignal';
+export { signal as Signal, effect as Effect}
 
 type ElementProps<T extends keyof JSX.IntrinsicElements> = JSX.IntrinsicElements[T] & {
   [key: string]: any;
@@ -129,8 +131,8 @@ export function Define<T extends Record<any, any>>(tagName: string) {
 export abstract class Component extends HTMLElement {
   static observedAttributes: string[] = []
   static observedProperties: string[] = []
-  private _props: any = {}
-  private _disposables: Array<(...args: any) => any> = []
+  #props: any = {}
+  #disposables: Array<(...args: any) => any> = []
 
   constructor() {
     super();
@@ -141,23 +143,23 @@ export abstract class Component extends HTMLElement {
     if (this.shadowRoot) this.shadowRoot.adoptedStyleSheets = [sheet];
   }
 
-  private handleObservables() {
-    for (const prop in this.constructor.observedProperties) {
-      const key = this.constructor.observedProperties[prop]
-      this._props[key] = this[key]
-      Object.defineProperty(this, key, {
+  #handleObservables() {
+    // @ts-ignore
+    for (const prop of this.constructor.observedProperties) {
+      if(!(prop in this)) return;
+      this.#props[prop] = this[prop]
+      Object.defineProperty(this, prop, {
         set(value) {
-          this._props[key] = value;
+          this.#props[prop] = value;
           this.requestUpdate();
         },
         get() {
-          return this._props[key]
-        },
-        configurable: true,
-        enumerable: true
+          return this.#props[prop]
+        }
       })
     }
     for (const attr of this.constructor.observedAttributes) {
+      if(!(attr in this)) return;
       Object.defineProperty(this, attr, {
         set: value => {
           this.setAttribute(attr, value);
@@ -174,26 +176,25 @@ export abstract class Component extends HTMLElement {
 
   requestUpdate() {
     if (!this.shadowRoot) throw new Error("Shadow root not found")
-    render(this.render(), this.shadowRoot);
+    console.log("Updating", this)
+    effect(() => render(this.render(), this.shadowRoot))
     this.update?.();
-    this.cbmap.update.forEach(cb => cb())
+    this.callbacks.update.forEach(cb => cb())
   }
 
   connectedCallback() {
-    if (!this.shadowRoot) throw new Error("Shadow root not found")
-    this.handleObservables()
+    this.#handleObservables()
     this.create?.();
-    this.cbmap.create.forEach(cb => cb())
-    this.render();
-    render(this.render(), this.shadowRoot);
+    this.callbacks.create.forEach(cb => cb())
+    this.requestUpdate();
     this.mount?.();
-    this.cbmap.mount.forEach(cb => cb())
+    this.callbacks.mount.forEach(cb => cb())
   }
 
   disconnectedCallback() {
     this.destroy?.();
-    this.cbmap.destroy.forEach(cb => cb())
-    this._disposables.forEach(disposable => disposable())
+    this.callbacks.destroy.forEach(cb => cb())
+    this.#disposables.forEach(disposable => disposable())
   }
 
   create?(): void;
@@ -201,7 +202,7 @@ export abstract class Component extends HTMLElement {
   update?(): void;
   destroy?(): void;
 
-  private cbmap: {
+  callbacks: {
     create: Array<() => void>,
     mount: Array<() => void>,
     update: Array<() => void>,
@@ -213,20 +214,12 @@ export abstract class Component extends HTMLElement {
       destroy: []
     }
 
-  protected addLifecycleCallback(name: keyof typeof this.cbmap, cb: () => void): void {
-    this.cbmap[name].push(cb)
+  protected addLifecycleCallback(name: keyof typeof this.callbacks, cb: () => void): void {
+    this.callbacks[name].push(cb)
   }
 
   protected addDisposable(disposable: (...args: any) => any): void {
-    this._disposables.push(disposable)
-  }
-
-  addSubscribable<T extends { subscribe: (value: any) => () => void }>(subscribable: T, action?: (value: any) => void) {
-    this.addDisposable(subscribable.subscribe((value: any) => {
-      if (action) action(value)
-      this.requestUpdate()
-    }))
-    return subscribable
+    this.#disposables.push(disposable)
   }
 
   /*

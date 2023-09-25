@@ -1,8 +1,5 @@
-import { Component, Define, Property, Bind, h, Attribute } from "./internal/Component.tsx";
-import Store from "./modules/stores/mod.ts";
-
-const doublecount = new Store(0);
-
+import { Component, Define, Property, Bind, Signal, h } from "./internal/Component.tsx";
+import { Link } from "./components/router.ts";
 
 interface IAppRoot {
   count: number;
@@ -13,9 +10,8 @@ export class AppRoot extends Component {
   @Property count = 0;
   @Bind increment() {
     this.count++;
-    doublecount.value = this.count * 2;
   }
-  constructor(){
+  constructor() {
     super()
   }
   render() {
@@ -23,19 +19,8 @@ export class AppRoot extends Component {
       <div className="flex flex-col items-center justify-center h-screen space-y-4">
         <span className="text-2xl">The count is <span className="text-blue-400">{this.count}</span></span>
         <button onClick={this.increment} className="bg-blue-400 px-2 py-1 rounded-sm text-white">Increment count</button>
-        <test-comp></test-comp>
+        <Link href="/blog" className="bg-blue-400 px-2 py-1 rounded-sm text-white">Go to some</Link>
       </div>
     )
-  }
-}
-
-interface ITestComp {
-}
-
-@Define<ITestComp>("test-comp")
-export class TestComp extends Component {
-  doublecount = this.addSubscribable(doublecount)
-  render() {
-    return <span className="text-2xl">doublecount = {this.doublecount.value}</span>
   }
 }
