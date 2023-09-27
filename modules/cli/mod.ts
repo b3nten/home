@@ -227,7 +227,6 @@ export default class CLI {
     this.#loaders = loaders;
     this.port = port;
     this.loaderPort = loaderPort;
-    this.startDevServer();
     this.#init();
   }
 
@@ -235,78 +234,6 @@ export default class CLI {
     controller: ReadableStreamDefaultController;
     intervalId: number;
   }>()
-
-  startDevServer() {
-    this.#loaders.forEach((loader) => {
-      CLI.Log.info(`Registered loader plugin ${loader.name}`);
-    });
-    CLI.Log.debug("Dev server established");
-    Deno.serve({
-      port: this.loaderPort,
-    }, async (req) => {
-      if (new URL(req.url).pathname === "/__refresh") {
-        CLI.Log.debug("SSE connection opened");
-        const headers = new Headers();
-        headers.append("Content-Type", "text/event-stream");
-        headers.append("Connection", "keep-alive");
-        headers.append("Cache-Control", "no-cache");
-        headers.append("Access-Control-Allow-Origin", "*");
-        const id = Math.random().toString(36).slice(2);
-        const body = new ReadableStream({
-          start: (controller) => {
-            controller.enqueue(new TextEncoder().encode(":\n\n"));  // SSE comment to keep connection alive
-            const intervalId = setInterval(() => {
-              controller.enqueue(new TextEncoder().encode(":\n\n"));  // SSE comment to keep connection alive
-            }, 5000);
-            this.clients.set(id, {
-              controller: controller,
-              intervalId,
-            })
-          },
-          cancel: () => {
-            const con = this.clients.get(id);
-            if(!con) return;
-            clearInterval(con.intervalId);
-            this.clients.delete(id);
-          },
-        });
-        return new Response(body, {
-          headers,
-        });
-      }
-
-      // Serve Loaders
-      const path = new URL(req.url).pathname;
-      const stats = await CLI.FileStats(path);
-      if (!stats || stats.isDirectory) {
-        return new Response("Not found", {
-          status: 404,
-        });
-      }
-      let file = await CLI.ReadFile(path);
-      if (file instanceof Error) {
-        return new Response("Internal server error", {
-          status: 500,
-        });
-      }
-      const plugin = this.#loaders.find((plugin) => {
-        if (typeof plugin.match === "function") {
-          return plugin.match({
-            path,
-          });
-        }
-        return plugin.match.test(path);
-      });
-      if (plugin) {
-        file = await plugin.load(file, { path });
-      }
-      return new Response(file, {
-        headers: {
-          "content-type": mime.getType(path) || "text/plain",
-        },
-      });
-    });
-  }
 
   async #init() {
     await this.build();
@@ -336,10 +263,6 @@ export default class CLI {
       ) {
         if (event.paths.every((path) => !path.includes("dist"))) {
           debouncedBuild();
-          // for(const [id, client] of this.clients) {
-          //   if(!client.controller) continue;
-          //   client.controller.enqueue(new TextEncoder().encode("data: reload\n\n"));
-          // }
         }
       }
     }

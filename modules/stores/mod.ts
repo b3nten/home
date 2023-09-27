@@ -1,5 +1,3 @@
-import { assert } from "https://deno.land/std@0.198.0/assert/assert.ts";
-
 type Subscription = (value: any) => void;
 type UnSubscription = () => void;
 

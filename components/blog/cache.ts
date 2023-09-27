@@ -1,15 +1,24 @@
-import { Component, Define, h } from "../../internal/Component.tsx";
+import { Component, createComponent, h } from "../../internal/Component.tsx";
 
 declare global {
   module globalThis {
-    var BlogCache: BlogCache;
+    var BlogCache: {
+      getPost(key: string): Promise<BlogPost | undefined>;
+    }
   }
 }
 
-@Define("blog-cache")
-export class BlogCache extends Component {
-  posts = new Map<string, string>();
+type BlogPost = {
+  title: string;
+  summary: string;
+  date: string;
+  content: string;
+};
 
+
+createComponent("blog-cache", class BlogCache extends Component {
+  posts = new Map<string, BlogPost>();
+  
   constructor() {
     super();
     globalThis.BlogCache = this;
@@ -19,19 +28,19 @@ export class BlogCache extends Component {
     }
   }
 
-  async getPost(key: string): Promise<string | undefined> {
+  async getPost(key: string): Promise<BlogPost | undefined> {
     if (this.posts.has(key)) return this.posts.get(key);
-    const response = await fetch(`/p/${key}.html`);
+    const response = await fetch(`/p/${key}.json`);
     if (response.status === 200) {
-      const html = await response.text();
-      this.posts.set(key, html);
-      return html;
+      const post = await response.json();
+      this.posts.set(key, post);
+      return post;
     } else {
-      return "Not found";
+      return undefined;
     }
   }
 
   render() {
     return null;
   }
-}
+});

@@ -1,6 +1,4 @@
-import { h as _h, render, JSX } from 'https://esm.sh/preact'
-import { signal, effect } from 'https://esm.sh/usignal';
-export { signal as Signal, effect as Effect}
+import { h as _h, render, JSX, Fragment } from 'https://esm.sh/preact'
 
 type ElementProps<T extends keyof JSX.IntrinsicElements> = JSX.IntrinsicElements[T] & {
   [key: string]: any;
@@ -42,82 +40,21 @@ export function createBetterH(h: any): IntrinsicElementCreator {
       }
     },
     apply: function (_, __, args) {
+      // console.log(args)
+      // if(args[0] && typeof args[0] === "object" && "tag" in args[0].prototype) return _h(args[0].prototype.tag, args[1])
       return h(...args)
     }
   }) as IntrinsicElementCreator
 }
 
 export const h = createBetterH(_h)
-/**
- * Decorator for properties that should be observed for changes.
- * This decorator is required for properties to be observed.
- * Shortcut for declaring Component.observedProperties.
- */
-export function Property(target: any, key: any): void {
-  target.constructor.observedProperties.push(key)
-}
 
-/**
- * Decorator for attributes that should be observed for changes.
- * This decorator is required for attributes to be observed.
- * Shortcut for declaring Component.observedAttributes.
- * This will always reflect attributes back to the tag and read from it as well.
- */
-export function Attribute(target: any, key: any): void {
-  target.constructor.observedAttributes.push(key)
-}
-
-/**
- * Decorator for methods that should be bound to the component.
- * Shortcut for this.method = this.method.bind(this)
- */
-export function Bind(_: any, key: any, { value: fn }: any) {
-  // In IE11 calling Object.defineProperty has a side-effect of evaluating the
-  // getter for the property which is being replaced. This causes infinite
-  // recursion and an "Out of stack space" error.
-  let definingProperty = false;
-  return {
-    configurable: true,
-    get() {
-      if (definingProperty) {
-        return fn;
-      }
-      let value = fn.bind(this);
-      definingProperty = true;
-      Object.defineProperty(this, key, {
-        value,
-        configurable: true,
-        writable: true
-      });
-      definingProperty = false;
-      return value;
-    }
-  };
-}
-
-/**
- * Utility function to create a component from a web component.
- * Usually nicer than trying to use a web component directly in an h function.
- * @param tag The tag of the web component
- * @returns A hyperscript component that renders the web component
- */
-export function wrapComponent<T>(tag: string) {
-  return function Component(props: T) {
-    // @ts-ignore tag can be any string!
-    return _h(tag, props)
-  }
-}
-
-/**
- * Decorator for classes that should be defined as a web component.
- * @param tagName The tag name of the web component
- * Generic type is the interface for the component.
- */
-type Constructor<T> = new (...args: any[]) => T;
-export function Define<T extends Record<any, any>>(tagName: string) {
-  return function (constructor: Constructor<T>) {
+export function createComponent<T>(tagName: string, constructor: Constructor<T>) {
+  constructor.prototype.tag = tagName;
+  customElements.define(tagName, constructor as any);
+  return function (props: T, ref: any) {
     // Define the custom element
-    customElements.define(tagName, constructor as any);
+    return _h(tagName, { ...props, ref })
   };
 }
 
@@ -129,10 +66,12 @@ export function Define<T extends Record<any, any>>(tagName: string) {
  * Observe properties by using the @Property decorator, or by adding them to the observedProperties array.
  */
 export abstract class Component extends HTMLElement {
-  static observedAttributes: string[] = []
-  static observedProperties: string[] = []
+  props: Record<string | number | symbol, any> = {}
+  attrs: Record<string | number | symbol, any> = {}
+
   #props: any = {}
   #disposables: Array<(...args: any) => any> = []
+  #dirty = false;
 
   constructor() {
     super();
@@ -145,28 +84,26 @@ export abstract class Component extends HTMLElement {
 
   #handleObservables() {
     // @ts-ignore
-    for (const prop of this.constructor.observedProperties) {
-      if(!(prop in this)) return;
-      this.#props[prop] = this[prop]
-      Object.defineProperty(this, prop, {
+    for (const key of Object.keys(this.props)) {
+      this.#props[key] = this.props[key]
+      Object.defineProperty(this.props, key, {
         set(value) {
-          this.#props[prop] = value;
+          this.#props[key] = value;
           this.requestUpdate();
         },
         get() {
-          return this.#props[prop]
+          return this.#props[key]
         }
       })
     }
-    for (const attr of this.constructor.observedAttributes) {
-      if(!(attr in this)) return;
-      Object.defineProperty(this, attr, {
+    for (const key of Object.keys(this.attrs)) {
+      Object.defineProperty(this.attrs, key, {
         set: value => {
-          this.setAttribute(attr, value);
+          this.setAttribute(key, String(value));
           this.requestUpdate();
         },
         get: () => {
-          return this.getAttribute(attr);
+          return this.getAttribute(key);
         },
       })
     }
@@ -175,11 +112,16 @@ export abstract class Component extends HTMLElement {
   abstract render(): any;
 
   requestUpdate() {
-    if (!this.shadowRoot) throw new Error("Shadow root not found")
-    console.log("Updating", this)
-    effect(() => render(this.render(), this.shadowRoot))
-    this.update?.();
-    this.callbacks.update.forEach(cb => cb())
+    if (this.#dirty) return;
+    this.#dirty = true;
+    queueMicrotask(() => {
+      this.#dirty = false;
+      this.beforeUpdate?.();
+      this.callbacks.beforeUpdate.forEach(cb => cb())
+      render(this.render(), this.shadowRoot!)
+      this.update?.();
+      this.callbacks.update.forEach(cb => cb())
+    })
   }
 
   connectedCallback() {
@@ -199,17 +141,20 @@ export abstract class Component extends HTMLElement {
 
   create?(): void;
   mount?(): void;
+  beforeUpdate?(): void;
   update?(): void;
   destroy?(): void;
 
   callbacks: {
     create: Array<() => void>,
     mount: Array<() => void>,
+    beforeUpdate: Array<() => void>,
     update: Array<() => void>,
     destroy: Array<() => void>
   } = {
       create: [],
       mount: [],
+      beforeUpdate: [],
       update: [],
       destroy: []
     }
@@ -222,16 +167,12 @@ export abstract class Component extends HTMLElement {
     this.#disposables.push(disposable)
   }
 
-  /*
-    Effect hook. Basically like useEffect.
-    Create an effect in the constructor or anywhere. It will be called on mount, the return value will be called on destroy or next effect.
-    If you want to call the effect on update, pass an array of dependencies as the second argument.
-  */
-
-  /*
-    Memo hook. Basically like useMemo.
-    Create a memo in the constructor or anywhere. It will be called on mount, and synchronously before update if the dependencies change.
-  */
-
+  protected addSubscription(subscription: { subscribe: (callback: () => void) => () => void, value: any }): void {
+    this.addDisposable(subscription.subscribe(() => this.requestUpdate()))
+    return subscription.value
+  }
 }
 
+
+globalThis.h = h;
+globalThis.Fragment = Fragment;
